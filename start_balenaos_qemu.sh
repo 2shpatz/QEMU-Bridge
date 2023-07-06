@@ -63,10 +63,13 @@ Usage: ${PROGRAM_NAME} --image <qemu_image_path> [OPTIONS]
 Options:
     -h, --help        	Show this message and exit
 	-i, --image		  	Path to the qemu image [Mandatory]
-    -B, --bridge        Creates bridge network between host and qemu (allows full communication)  
-	-P, --port_forward	Port to forward from the guest qemu to the host 
+    -B, --bridge        Creates bridge network between host and qemu (allows full communication)
+	-P, --port_forward	(TBD) Port to forward from the guest qemu to the host 
 							Usage: --port_forward <host_port> <qemu_port> (exp. --port_forward 8080 80)
-    
+    -R, --ram           Set the initial amount of guest memory
+    -- max_ram          Set the maximum amount of guest memory (default: none)
+    -C, --cpu           Set the number of CPUs
+
 -----------------------------------------------------
 TEMPLATE_USAGE
     exit 1
@@ -83,6 +86,7 @@ function set_defaults {
     PROGRAM_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
     PROGRAM_NAME="$(basename "$PROGRAM_PATH")"
     PROGRAM_DIR="$(dirname "$PROGRAM_PATH")"
+    QEMU_IMAGE=""
     BRIDGE_NET_DEVICE=""
     BRIDGE_IP=""
     DEVICE_IP=""
@@ -152,6 +156,10 @@ function parse_arguments {
             ;;
         esac
     done
+    if [[ -z "${QEMU_IMAGE}" ]]; then
+        error "Providing a QEMU image is mandatory use the --image flag, you can download a new image from your Balena cloud"
+        return 4
+    fi
     return 0
 
 }

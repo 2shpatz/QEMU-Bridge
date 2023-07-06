@@ -264,11 +264,9 @@ function start_qemu
                         success "Device IP is: ${DEVICE_IP}"
                     fi
                 fi
-
                 info "Use port ${SSH_PORT} to ssh the device"
                 return 0
             fi
-            sleep 1
         done
     fi
     error "Failed to start qemu device"

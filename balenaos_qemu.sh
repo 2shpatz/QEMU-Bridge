@@ -53,22 +53,23 @@ function msg {
 
 function show_usage {
     cat <<TEMPLATE_USAGE
-Usage: ${PROGRAM_NAME} --image <qemu_image_path> [OPTIONS]
+Usage: ./${PROGRAM_NAME} --image <qemu_image_path> [OPTIONS]
 
    Description: This program runs BalenaOS QEMU images with options
 
    Example: 
-    ${PROGRAM_NAME} --image <path_to_image> --bridge
+    ./${PROGRAM_NAME} --image <path_to_image> --bridge
 
 Options:
     -h, --help        	Show this message and exit
-    -i, --image		  	Path to the qemu image [Mandatory]
+    -i, --image         Path to the qemu image [Mandatory]
     -B, --bridge        Creates bridge network between host and qemu (allows full communication)
     -P, --port_forward	(TBD) Port to forward from the guest qemu to the host 
 							Usage: --port_forward <host_port> <qemu_port> (exp. --port_forward 8080 80)
     -R, --ram           Set the initial amount of guest memory
-    --max_ram          Set the maximum amount of guest memory (default: none)
+    --max_ram           Set the maximum amount of guest memory (default: none)
     -C, --cpu           Set the number of CPUs
+    -s, --stop          Stop QEMU device by its assigned ssh port
 
 -----------------------------------------------------
 TEMPLATE_USAGE
@@ -95,6 +96,7 @@ function set_defaults {
     END_SSH_PORT=22500
     INIT_RAM=512
     NUM_OF_CPU=4
+    STOP_DEVICE=0
     NET_BRIDGE=0
     return 0
 }
@@ -105,8 +107,8 @@ function parse_arguments {
         	error "I'm sorry, 'getopt --test' failed in this environment."
         	return 1
     	fi
-	local short_options=i:B:P:h
-    local long_options=image:,port_forward:,bridge,help
+	local short_options=i:P:s:Bh
+    local long_options=image:,port_forward:,stop:,bridge,help
 	if ! PARSED=$(
         getopt --options="$short_options" --longoptions="$long_options" \
             --name "$PROGRAM_PATH" -- "$@"
@@ -151,16 +153,17 @@ function parse_arguments {
             NUM_OF_CPU=$2
             shift 2
             ;;
+        -s | --stop)
+            STOP_DEVICE=1
+            SSH_PORT=$2
+            shift 2
+            ;;
 		*)
             error "Programming error"
             return 3
             ;;
         esac
     done
-    if [[ -z "${QEMU_IMAGE}" ]]; then
-        error "Providing a QEMU image is mandatory use the --image flag, you can download a new image from your Balena cloud"
-        return 4
-    fi
     return 0
 
 }
@@ -201,7 +204,7 @@ function set_virtual_bridge
     # set up the qemu bridge helper
     if [[ $(sudo cat /etc/qemu/bridge.conf) != "allow virbr0*" ]]; then
         warning "Setting up qemu bridge helper"
-        sudo mkdir /etc/qemu
+        sudo mkdir -p /etc/qemu
         sudo touch /etc/qemu/bridge.conf
         sudo chown root:root /etc/qemu/bridge.conf
         sudo chmod 0777 /etc/qemu/bridge.conf
@@ -259,10 +262,22 @@ function wait_for_ssh_connection
     fi
 }
 
+function shutdown_qemu
+{
+    if ! ssh -p ${SSH_PORT} root@localhost shutdown -h 0; then
+        error "Shutdown command failed to send"
+        return 1
+    fi
+}
+
 function start_qemu
 {   
-    if ! assign_free_ssh_port; then
+    if [[ -z "${QEMU_IMAGE}" ]]; then
+        error "Providing a QEMU image is mandatory use the --image flag, you can download a new image from your Balena cloud"
         return 1
+    fi
+    if ! assign_free_ssh_port; then
+        return 2
     fi
     warning "Trying to start QEMU device"
 	if sudo qemu-system-x86_64 \
@@ -286,13 +301,14 @@ function start_qemu
                         success "Device IP is: ${DEVICE_IP}"
                     fi
                 fi
-                info "Use port ${SSH_PORT} to ssh the device"
+                info "You can use this command to ssh the device:"
+                info "ssh -p ${SSH_PORT} root@localhost"
                 return 0
             fi
         done
     fi
     error "Failed to start qemu device"
-    return 2
+    return 10
 }
 
 
@@ -306,6 +322,11 @@ function main
 
     if ! parse_arguments "$@"; then
         return 2
+    fi
+
+    if [ ${STOP_DEVICE} -eq 1 ]; then
+        shutdown_qemu
+        return 0
     fi
 
     if ! set_virtual_bridge; then

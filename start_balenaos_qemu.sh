@@ -181,6 +181,7 @@ function set_virtual_bridge
         # enable port forwarding
         sudo sysctl net.ipv4.ip_forward=1
         # start libvirtd service
+        sudo adduser $USER libvirt
         sudo systemctl enable libvirtd.service
         sudo systemctl start libvirtd.service
         # start the default network bridge

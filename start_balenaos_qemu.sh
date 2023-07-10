@@ -62,12 +62,12 @@ Usage: ${PROGRAM_NAME} --image <qemu_image_path> [OPTIONS]
 
 Options:
     -h, --help        	Show this message and exit
-	-i, --image		  	Path to the qemu image [Mandatory]
+    -i, --image		  	Path to the qemu image [Mandatory]
     -B, --bridge        Creates bridge network between host and qemu (allows full communication)
-	-P, --port_forward	(TBD) Port to forward from the guest qemu to the host 
+    -P, --port_forward	(TBD) Port to forward from the guest qemu to the host 
 							Usage: --port_forward <host_port> <qemu_port> (exp. --port_forward 8080 80)
     -R, --ram           Set the initial amount of guest memory
-    -- max_ram          Set the maximum amount of guest memory (default: none)
+    --max_ram          Set the maximum amount of guest memory (default: none)
     -C, --cpu           Set the number of CPUs
 
 -----------------------------------------------------
@@ -174,9 +174,9 @@ function set_virtual_bridge
     if [ ${NET_BRIDGE} -eq 0 ]; then
         return 0
     fi
-    warning "set_virtual_bridge"
+    warning "Setting up virtual bridge"
     # check if virbr0 exists and IP allocated 
-    if ! ip -f inet addr show virbr0 | sed -En -e 's/.*inet ([0-9.]+).*/\1/p'; then
+    if ! ip -f inet addr show virbr0 | sed -En -e 's/.*inet ([0-9.]+).*/\1/p' >/dev/null 2>&1; then
         warning "Setting up virtual bridge"
         # enable port forwarding
         sudo sysctl net.ipv4.ip_forward=1
@@ -190,6 +190,7 @@ function set_virtual_bridge
     # set up the qemu bridge helper
     if [[ $(sudo cat /etc/qemu/bridge.conf) != "allow virbr0*" ]]; then
         warning "Setting up qemu bridge helper"
+        sudo mkdir /etc/qemu
         sudo touch /etc/qemu/bridge.conf
         sudo chown root:root /etc/qemu/bridge.conf
         sudo chmod 0777 /etc/qemu/bridge.conf
@@ -198,6 +199,7 @@ function set_virtual_bridge
     fi
     BRIDGE_NET_DEVICE="-netdev bridge,id=hn0,br=virbr0 -device virtio-net-pci,netdev=hn0,id=nic1"
     BRIDGE_IP=$(ip -f inet addr show virbr0 | sed -En -e 's/.*inet ([0-9.]+).*/\1/p')
+    info "Bridge IP is: ${BRIDGE_IP}"
 }
 
 # Function to find a free port in a range
@@ -229,8 +231,9 @@ function wait_for_ssh_connection
 
     # Wait for successful SSH connection
     elapsed_time=0
+    ssh-keygen -R "[localhost]:${SSH_PORT}">/dev/null 2>&1
     while [[ $elapsed_time -lt $timeout ]]; do
-        ssh -q -o ConnectTimeout=5 -p ${SSH_PORT} root@localhost exit >/dev/null 2>&1
+        ssh -q -o ConnectTimeout=5 -oStrictHostKeyChecking=no -p ${SSH_PORT} root@localhost exit >/dev/null 2>&1
         if [[ $? -eq 0 ]]; then
             info "SSH connection successful"
             break
@@ -240,7 +243,7 @@ function wait_for_ssh_connection
     done
 
     if [[ $elapsed_time -ge $timeout ]]; then
-        warning "Timed out waiting for SSH connection to $remote_host on port ${SSH_PORT}"
+        warning "Timed out waiting for SSH connection to the qemu device on port ${SSH_PORT}"
         return 1
     fi
 }
@@ -298,11 +301,7 @@ function main
         return 3
     fi
 
-    if ! start_qemu; then
-        return 4
-    fi 
-    
-    return 0
+    start_qemu
 }
 
 main "$@"

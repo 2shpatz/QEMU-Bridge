@@ -86,6 +86,7 @@ function set_defaults {
     PROGRAM_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
     PROGRAM_NAME="$(basename "$PROGRAM_PATH")"
     PROGRAM_DIR="$(dirname "$PROGRAM_PATH")"
+    PACKAGES_LIST="qemu-kvm libvirt-daemon-system"
     QEMU_IMAGE=""
     BRIDGE_NET_DEVICE=""
     BRIDGE_IP=""
@@ -164,6 +165,15 @@ function parse_arguments {
 
 }
 
+# make sure that nessesary packages are installed 
+function check_packages
+{
+    set -e
+    if ! dpkg -s ${PACKAGES_LIST}; then
+        sudo apt-get install -y ${PACKAGES_LIST}
+    fi 
+    set +e
+}
 # function port_forward
 # {
 

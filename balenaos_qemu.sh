@@ -87,6 +87,7 @@ function set_defaults {
     PROGRAM_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
     PROGRAM_NAME="$(basename "$PROGRAM_PATH")"
     PROGRAM_DIR="$(dirname "$PROGRAM_PATH")"
+    BRIDGE_CONFIG_PATH=${PROGRAM_DIR}/configs/default.xml
     PACKAGES_LIST="qemu-kvm libvirt-daemon-system"
     QEMU_IMAGE=""
     BRIDGE_NET_DEVICE=""
@@ -197,7 +198,9 @@ function set_virtual_bridge
         sudo adduser $USER libvirt
         sudo systemctl enable libvirtd.service
         sudo systemctl start libvirtd.service
-        # start the default network bridge
+        # create default network using configuration file
+	sudo virsh net-define --file ${BRIDGE_CONFIG_PATH}
+	# start the default network bridge
         sudo virsh net-autostart --network default
         sudo virsh net-start --network default
     fi
@@ -211,7 +214,7 @@ function set_virtual_bridge
         sudo echo "allow virbr0" > /etc/qemu/bridge.conf
         sudo chmod u+s /usr/lib/qemu/qemu-bridge-helper
     fi
-    BRIDGE_NET_DEVICE="-netdev bridge,id=hn0,br=virbr0 -device virtio-net-pci,netdev=hn0,id=nic1"
+    BRIDGE_NET_DEVICE="-netdev bridge,id=hn0,br=virbr0 -device virtio-net-pci,netdev=hn0,id=nic2"
     BRIDGE_IP=$(ip -f inet addr show virbr0 | sed -En -e 's/.*inet ([0-9.]+).*/\1/p')
     info "Bridge IP is: ${BRIDGE_IP}"
 }

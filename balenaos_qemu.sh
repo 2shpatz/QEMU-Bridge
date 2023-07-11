@@ -63,7 +63,8 @@ Usage: ./${PROGRAM_NAME} --image <qemu_image_path> [OPTIONS]
 Options:
     -h, --help        	Show this message and exit
     -i, --image         Path to the qemu image [Mandatory]
-    -B, --bridge        Creates bridge network between host and qemu (allows full communication)
+    -B, --bridge        Connect the QEMU to a bridge network and assign a uniqe MAC address to it (allows full communication between host and qemu)\n
+                        Note: Creates a default bridge network if not exist
     -P, --port_forward	(TBD) Port to forward from the guest qemu to the host 
 							Usage: --port_forward <host_port> <qemu_port> (exp. --port_forward 8080 80)
     -R, --ram           Set the initial amount of guest memory
@@ -99,6 +100,7 @@ function set_defaults {
     NUM_OF_CPU=4
     STOP_DEVICE=0
     NET_BRIDGE=0
+    MAC_ADDRESS_PREFIX="52:54:00:12:34"
     return 0
 }
 
@@ -214,7 +216,8 @@ function set_virtual_bridge
         sudo echo "allow virbr0" > /etc/qemu/bridge.conf
         sudo chmod u+s /usr/lib/qemu/qemu-bridge-helper
     fi
-    BRIDGE_NET_DEVICE="-netdev bridge,id=hn0,br=virbr0 -device virtio-net-pci,netdev=hn0,id=nic2"
+    assign_mac="${MAC_ADDRESS_PREFIX}:${SSH_PORT: -2}"
+    BRIDGE_NET_DEVICE="-netdev bridge,id=hn0,br=virbr0 -device virtio-net-pci,netdev=hn0,id=nic1,mac=${assign_mac}"
     BRIDGE_IP=$(ip -f inet addr show virbr0 | sed -En -e 's/.*inet ([0-9.]+).*/\1/p')
     info "Bridge IP is: ${BRIDGE_IP}"
 }
@@ -279,9 +282,6 @@ function start_qemu
         error "Providing a QEMU image is mandatory use the --image flag, you can download a new image from your Balena cloud"
         return 1
     fi
-    if ! assign_free_ssh_port; then
-        return 2
-    fi
     warning "Trying to start QEMU device"
 	if sudo qemu-system-x86_64 \
 		-device ahci,id=ahci \
@@ -329,11 +329,13 @@ function main
 
     if [ ${STOP_DEVICE} -eq 1 ]; then
         shutdown_qemu
-        return 0
-    fi
-
-    if ! set_virtual_bridge; then
         return 3
+    fi
+    if ! assign_free_ssh_port; then
+        return 4
+    fi
+    if ! set_virtual_bridge; then
+        return 5
     fi
 
     start_qemu

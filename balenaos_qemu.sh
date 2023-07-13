@@ -90,6 +90,8 @@ function set_defaults {
     PROGRAM_DIR="$(dirname "$PROGRAM_PATH")"
     BRIDGE_CONFIG_PATH=${PROGRAM_DIR}/configs/default.xml
     PACKAGES_LIST="qemu-kvm libvirt-daemon-system"
+    MACHINE_OPT="type=pc"
+    CPU_OPT="qemu64"
     QEMU_IMAGE=""
     BRIDGE_NET_DEVICE=""
     BRIDGE_IP=""
@@ -171,12 +173,25 @@ function parse_arguments {
 
 }
 
+# Check host hardware
+function check_host_hardware
+{
+    # check kvm support
+    if grep -q '^flags.*\bvmx\b' /proc/cpuinfo; then
+        MACHINE_OPT="type=pc,accel=kvm"
+        CPU_OPT="host"
+    fi
+}
+
 # make sure that nessesary packages are installed 
 function check_packages
 {
     set -e
     if ! dpkg -s ${PACKAGES_LIST}; then
-        sudo apt-get install -y ${PACKAGES_LIST}
+        if ! sudo apt-get install -y ${PACKAGES_LIST}; then
+            error "Failed to install necessary packages"
+            return 1
+        fi
     fi 
     set +e
 }
@@ -289,7 +304,7 @@ function start_qemu
 		-device ide-hd,drive=disk,bus=ahci.0 \
 		-net nic,model=virtio -net user,hostfwd=tcp::${SSH_PORT}-:22222,${PORT_FORWARD:-} ${BRIDGE_NET_DEVICE:-} \
 		-m ${INIT_RAM},${MAX_RAM:-} -display none -daemonize \
-        -machine type=pc -smp ${NUM_OF_CPU} ; then 
+        -machine ${MACHINE_OPT} -smp ${NUM_OF_CPU} -cpu ${CPU_OPT} ; then 
 
         info "Starting QEMU device on background, please wait... (around one minute)"
         while :; do
@@ -323,19 +338,29 @@ function main
         return 1
     fi
 
-    if ! parse_arguments "$@"; then
+    if ! check_packages; then
         return 2
+    fi
+
+    if ! parse_arguments "$@"; then
+        return 3
     fi
 
     if [ ${STOP_DEVICE} -eq 1 ]; then
         shutdown_qemu
-        return 3
-    fi
-    if ! assign_free_ssh_port; then
         return 4
     fi
-    if ! set_virtual_bridge; then
+    
+    if ! check_host_hardware; then
+        error "Failed to check host hardware"
         return 5
+    fi
+
+    if ! assign_free_ssh_port; then
+        return 6
+    fi
+    if ! set_virtual_bridge; then
+        return 7
     fi
 
     start_qemu

@@ -187,7 +187,7 @@ function check_host_hardware
 function check_packages
 {
     set -e
-    if ! dpkg -s ${PACKAGES_LIST}; then
+    if ! dpkg -s ${PACKAGES_LIST} &>/dev/null; then
         if ! sudo apt-get install -y ${PACKAGES_LIST}; then
             error "Failed to install necessary packages"
             return 1
@@ -216,10 +216,10 @@ function set_virtual_bridge
         sudo systemctl enable libvirtd.service
         sudo systemctl start libvirtd.service
         # create default network using configuration file
-	sudo virsh net-define --file ${BRIDGE_CONFIG_PATH}
-	# start the default network bridge
-        sudo virsh net-autostart --network default
-        sudo virsh net-start --network default
+        sudo virsh net-define --file ${BRIDGE_CONFIG_PATH}
+        # start the default network bridge
+        sudo virsh net-autostart --network qemu
+        sudo virsh net-start --network qemu
     fi
     # set up the qemu bridge helper
     if [[ $(sudo cat /etc/qemu/bridge.conf) != "allow virbr0*" ]]; then

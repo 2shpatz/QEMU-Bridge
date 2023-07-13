@@ -1,5 +1,5 @@
 <network>
-  <name>default</name>
+  <name>qemu</name>
   <uuid>1a05da11-e96b-47f3-8253-a3a482e445f5</uuid>
   <forward mode='nat'/>
   <bridge name='virbr0' stp='on' delay='0'/>

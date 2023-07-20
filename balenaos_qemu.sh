@@ -188,6 +188,7 @@ function check_packages
 {
     set -e
     if ! dpkg -s ${PACKAGES_LIST} &>/dev/null; then
+        warning "Necessary packages are missing, installing..."
         if ! sudo apt-get install -y ${PACKAGES_LIST}; then
             error "Failed to install necessary packages"
             return 1
@@ -205,7 +206,6 @@ function set_virtual_bridge
     if [ ${NET_BRIDGE} -eq 0 ]; then
         return 0
     fi
-    warning "Setting up virtual bridge"
     # check if virbr0 exists and IP allocated 
     if ! ip -f inet addr show virbr0 | sed -En -e 's/.*inet ([0-9.]+).*/\1/p' >/dev/null 2>&1; then
         warning "Setting up virtual bridge"
@@ -268,7 +268,7 @@ function wait_for_ssh_connection
     elapsed_time=0
     ssh-keygen -R "[localhost]:${SSH_PORT}">/dev/null 2>&1
     while [[ $elapsed_time -lt $timeout ]]; do
-        ssh -q -o ConnectTimeout=5 -oStrictHostKeyChecking=no -p ${SSH_PORT} root@localhost exit >/dev/null 2>&1
+        ssh -q -o ConnectTimeout=5 -o StrictHostKeyChecking=no -p ${SSH_PORT} root@localhost exit >/dev/null 2>&1
         if [[ $? -eq 0 ]]; then
             info "SSH connection successful"
             break

@@ -1,0 +1,25 @@
+= Balena QEMU
+
+== Summery
+
+This project contains a balenaos_qemu.sh script that brings up balena QEMU devices for SIL testings
+
+== Requirements 
+
+Here is a list of things to check before running for the first time:
+
+=== Host Hardware
+
+. For best performance make sure your server includes KVM support (not a must), for a VM enable "Hardware virtualization access"
+
+=== Host Software
+
+. Balena-cli, for fleet/device managing, * https://github.com/balena-io/balena-cli/blob/master/INSTALL-LINUX.md[balena-cli]
+
+
+
+
+== Troubleshooting 
+
+. The device can't fully connect to the Balena cloud (appears as ! online - only heartbeat)
+For full Balena cloud connection make sure your server has proxy access enabled, turn to IT for support.

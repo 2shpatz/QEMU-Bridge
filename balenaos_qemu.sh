@@ -102,6 +102,7 @@ function set_defaults {
     NUM_OF_CPU=4
     STOP_DEVICE=0
     NET_BRIDGE=0
+    SSH_CONNECTION_RETRIES=2
     MAC_ADDRESS_PREFIX="52:54:00:12:34"
     return 0
 }
@@ -307,7 +308,7 @@ function start_qemu
         -machine ${MACHINE_OPT} -smp ${NUM_OF_CPU} -cpu ${CPU_OPT} ; then 
 
         info "Starting QEMU device on background, please wait... (around one minute)"
-        while :; do
+        for ((retry=0; retry<${SSH_CONNECTION_RETRIES}; retry++)); do
             # Check if SSH port is open on the remote host
             if wait_for_ssh_connection; then
                 success "QEMU device is up"
@@ -321,9 +322,11 @@ function start_qemu
                 fi
                 info "You can use this command to ssh the device:"
                 info "ssh -p ${SSH_PORT} root@localhost"
-                return 0
+                return 0                
             fi
         done
+        warning "Can't establish SSH connection, for SSH connection make sure to use a developer image (not production)"
+        return 0
     fi
     error "Failed to start qemu device"
     return 10
